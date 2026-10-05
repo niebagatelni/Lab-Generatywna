@@ -1,0 +1,13 @@
+{
+  "cechy": [
+    "cv_promienia",
+    "rozpietosc_p"
+  ],
+  "w": [
+    68.4994323045739,
+    22.62773880173016
+  ],
+  "b": -10.602002963486546,
+  "klasa_ujemna": "kolo",
+  "klasa_dodatnia": "kwadrat"
+}
