@@ -1,19 +1,15 @@
-# Klasyfikator Ksztaltow: Kolo czy Kwadrat
-
-Lekki klasyfikator ksztaltow geometrycznych rysowanych odrecznie. Zamiast ciezkich sieci neuronowych projekt wykorzystuje analize konturow (OpenCV) oraz model regresji liniowej zapisany w pliku JSON (< 1 KB).
+Dużo nie zmieniłem, dodałem coś podobnego do tego jak ja trenowałem mój model - czyli wobble + rotacja. Działa, wygenerowałem dużo rzeczy i trochę poduczyłem i powinno działać.
 
 ## Wymagania
 
-Wymagany Python 3.10+ oraz biblioteki:
+Wymagane biblioteki:
 
 ```bash
 pip install opencv-python scikit-learn matplotlib pillow numpy
 ```
 
-## Szybki start
-
-### 1. Aplikacja glowna (GUI)
-Uruchomienie glownego okna programu z mozliwoscia rysowania i douczania:
+### 1. Główna aplikacja 
+Rysowanie i douczanie
 
 ```bash
 python main.py
@@ -23,16 +19,9 @@ Opis przyciskow w aplikacji:
 - Rozpoznaj: klasyfikuje narysowany ksztalt jako KOLO lub KWADRAT i wyswietla pewnosc w procentach.
 - To kolo / To kwadrat: zapisuje Twoj rysunek z podana etykieta i natychmiast doucza model w czasie rzeczywistym.
 - Generuj 50+50 probek: generuje w locie nowe syntetyczne figury i aktualizuje model.
-- Wyczysc: resetuje plotno.
+- Wyczysc: resetuje płótno.
 
-### 2. Samodzielne rozpoznawanie (lekka inferencja)
-Minimalistyczny program tylko do sprawdzania rysunkow (uzywa wylacznie pliku granica.json, bez biblioteki scikit-learn):
-
-```bash
-python rozpoznaj.py
-```
-
-### 3. Wizualizacja i animacja granicy 2D
+### 2. Wizualizacja i animacja granicy 2D
 Animowane przedstawienie przestrzeni cech oraz wyznaczonej prostej decyzyjnej:
 
 ```bash
@@ -41,7 +30,7 @@ python wykres.py
 
 Wykres koncowy jest rowniez zapisywany do pliku wykres.png.
 
-### 4. Skrypty konsolowe
+### 3. Skrypty konsolowe
 - Generowanie syntetycznych danych do dane.csv:
   ```bash
   python generuj.py 300
