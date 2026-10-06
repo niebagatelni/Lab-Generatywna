@@ -17,7 +17,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 KOLORY = {"kolo": "#1f77b4", "kwadrat": "#d62728"}
-ETYKIETY_PL = {"kolo": "Koła / Elipsy", "kwadrat": "Kwadraty"}
+ETYKIETY_PL = {"kolo": "Koła", "kwadrat": "Kwadraty"}
 
 
 def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.04, save_only=False):

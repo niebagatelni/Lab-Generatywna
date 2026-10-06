@@ -39,7 +39,7 @@ def klasyfikuj(granica, wypelnienie, rogi):
 class Aplikacja:
     def __init__(self, root):
         self.root = root
-        root.title("Rozpoznawanie: koło czy kwadrat (Wariant 2)")
+        root.title("Rozpoznawanie: koło czy kwadrat")
 
         self.canvas = tk.Canvas(root, width=ROZMIAR, height=ROZMIAR, bg="white",
                                 highlightthickness=1, highlightbackground="black")
@@ -105,7 +105,7 @@ class Aplikacja:
             return
 
         etykieta, pewnosc, z = klasyfikuj(self.granica, wyp, rogi)
-        nazwa = {"kolo": "KOŁO / ELIPSA", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
+        nazwa = {"kolo": "KOŁO", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
         self.status.config(
             text=f"To {nazwa} (pewność: {pewnosc:.1%})\n[wypełnienie: {wyp:.3f}, rogi: {rogi:.0f}, z: {z:+.2f}]"
         )

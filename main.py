@@ -23,7 +23,7 @@ ROZMIAR = 350
 class AplikacjaGlowna:
     def __init__(self, root):
         self.root = root
-        root.title("Klasyfikator: Koło/Elipsa czy Kwadrat (Active Learning - Wariant 2)")
+        root.title("Klasyfikator: Koło czy Kwadrat (Active Learning)")
         root.resizable(False, False)
 
         self.canvas = tk.Canvas(
@@ -108,7 +108,7 @@ class AplikacjaGlowna:
         z = w1 * wyp + w2 * rogi + self.granica["b"]
         pewnosc = 1.0 / (1.0 + math.exp(-abs(z)))
         etykieta = self.granica["klasa_dodatnia"] if z > 0 else self.granica["klasa_ujemna"]
-        nazwa = {"kolo": "KOŁO / ELIPSA", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
+        nazwa = {"kolo": "KOŁO", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
 
         self.status.config(
             text=f"Rozpoznano: {nazwa} (pewność: {pewnosc:.1%})\n"
