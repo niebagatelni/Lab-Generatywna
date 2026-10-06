@@ -1,9 +1,9 @@
 """Animacja procesu uczenia i adaptacji granicy decyzyjnej 2D.
 Wizualizuje przestrzeń cech: Wypełnienie prostokąta otaczającego vs Liczba rogów.
-Dla kół i elips wypełnienie wynosi zawsze ~0.785, dla kwadratów ~0.90 - 1.0.
+Domyślnie przetwarza pierwsze maksymalnie 1000 próbek dla zachowania płynności animacji.
 
 Użycie z konsoli:
-    python wykres.py [dane.csv] [odstep_w_sekundach] [--save-only]
+    python wykres.py [dane.csv] [odstep_w_sekundach] [max_probek] [--save-only]
 """
 import os
 import sys
@@ -18,12 +18,19 @@ if hasattr(sys.stdout, "reconfigure"):
 
 KOLORY = {"kolo": "#1f77b4", "kwadrat": "#d62728"}
 ETYKIETY_PL = {"kolo": "Koła", "kwadrat": "Kwadraty"}
+DOMYSLNY_LIMIT_PROBEK = 1000
 
 
-def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.04, save_only=False):
+def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.04, max_probek=DOMYSLNY_LIMIT_PROBEK, save_only=False):
     X, y = m.wczytaj_dane(sciezka_danych)
     if len(y) == 0:
         raise SystemExit(f"Brak danych w {sciezka_danych}.")
+
+    calkowita_liczba = len(y)
+    if max_probek is not None and calkowita_liczba > max_probek:
+        X = X[:max_probek]
+        y = y[:max_probek]
+        print(f"Ograniczono wizualizację do pierwszych {max_probek} próbek (z {calkowita_liczba}).")
 
     fig, ax = plt.subplots(figsize=(9, 6), dpi=100)
 
@@ -99,6 +106,7 @@ def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.04, save_only=False):
 if __name__ == "__main__":
     sciezka = m.SCIEZKA_DANYCH
     odstep = 0.04
+    max_probek = DOMYSLNY_LIMIT_PROBEK
     save_only = False
 
     args = sys.argv[1:]
@@ -106,10 +114,19 @@ if __name__ == "__main__":
         save_only = True
         args.remove("--save-only")
 
-    if len(args) > 0 and not args[0].replace(".", "", 1).isdigit():
+    if len(args) > 0 and (args[0].endswith(".csv") or os.path.exists(args[0])):
         sciezka = args[0]
         args = args[1:]
     if len(args) > 0:
-        odstep = float(args[0])
+        try:
+            odstep = float(args[0])
+            args = args[1:]
+        except ValueError:
+            pass
+    if len(args) > 0:
+        try:
+            max_probek = int(args[0])
+        except ValueError:
+            pass
 
-    animuj(sciezka, odstep, save_only=save_only)
+    animuj(sciezka, odstep, max_probek=max_probek, save_only=save_only)
