@@ -1,101 +1,148 @@
-"""Generuje syntetyczne koła i kwadraty (na przemian) i dopisuje ich cechy do dane.csv.
+"""Generator syntetycznych odręcznych kół i kwadratów w pamięci RAM.
+Wzbogacony o realistyczny szum, harmoniczne falowanie i losowe obroty (zapożyczone z generatora CNN).
+Wyekstrahowane cechy dopisywane są do pliku dane.csv bez tworzenia tysięcy plików PNG.
 
-Użycie: python generuj.py [liczba_na_klase]   (domyślnie 50)
+Użycie z konsoli:
+    python generuj.py [liczba_na_klase]   (domyślnie 50)
 """
 import csv
 import math
 import os
 import random
 import sys
-
 import numpy as np
 from PIL import Image, ImageDraw
 
 import model as m
-from cechy import GRUBOSC, cechy
+from cechy import cechy
 
-ROZMIAR = 300
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+ROZMIAR = 350
 SCIEZKA = m.SCIEZKA_DANYCH
 
 
-def _drzenie(p, sila):
-    return (p[0] + random.uniform(-sila, sila), p[1] + random.uniform(-sila, sila))
+def generuj_odreczne_kolo(size=ROZMIAR):
+    """Generuje obraz odręcznego koła z harmonicznym falowaniem promienia."""
+    img = Image.new("L", (size, size), 0)
+    draw = ImageDraw.Draw(img)
 
+    cx = random.uniform(size * 0.35, size * 0.65)
+    cy = random.uniform(size * 0.35, size * 0.65)
+    base_r = random.uniform(size * 0.16, size * 0.33)
 
-def punkty_kola():
-    rx = random.uniform(20, 140)
-    ry = rx * random.uniform(0.85, 1.15)  # lekko spłaszczone
-    cx = random.uniform(rx + 2, ROZMIAR - rx - 2)
-    cy = random.uniform(ry + 2, ROZMIAR - ry - 2)
-    n = 90
-    start = random.uniform(0, 2 * math.pi)
-    # odległość od środka lekko faluje, jak przy ręcznym rysowaniu
-    faza, amp = random.uniform(0, 6.28), random.uniform(0.0, 0.04)
+    num_pts = random.randint(50, 90)
+    wobble1 = random.uniform(0.02, 0.08) * base_r
+    wobble2 = random.uniform(0.01, 0.05) * base_r
+    phase1 = random.uniform(0, 2 * math.pi)
+    phase2 = random.uniform(0, 2 * math.pi)
+    line_w = random.randint(3, 6)
+
     pts = []
-    for i in range(n):
-        a = start + 2 * math.pi * i / n
-        f = 1 + amp * math.sin(3 * a + faza)
-        pts.append((cx + rx * f * math.cos(a), cy + ry * f * math.sin(a)))
-    return [_drzenie(p, 1.0) for p in pts]
+    tot_angle = 2 * math.pi + random.uniform(0.05, 0.25)  # lekkie nachodzenie linii
+    step = tot_angle / num_pts
+
+    for i in range(num_pts + 1):
+        th = i * step
+        smooth_dev = wobble1 * math.sin(th + phase1) + wobble2 * math.sin(2 * th + phase2)
+        local_jitter = random.uniform(-0.02, 0.02) * base_r
+        r = base_r + smooth_dev + local_jitter
+
+        x = cx + r * math.cos(th)
+        y = cy + r * math.sin(th)
+        pts.append((x, y))
+
+    draw.line(pts, fill=255, width=line_w, joint="curve")
+    return img
 
 
-def punkty_kwadratu():
-    a = random.uniform(30, 250)
-    b = a * random.uniform(0.9, 1.1)
-    kat = math.radians(random.uniform(-12, 12))
-    cx = ROZMIAR / 2 + random.uniform(-1, 1) * (ROZMIAR - max(a, b) * 1.45) / 2
-    cy = ROZMIAR / 2 + random.uniform(-1, 1) * (ROZMIAR - max(a, b) * 1.45) / 2
-    rog = [(-a / 2, -b / 2), (a / 2, -b / 2), (a / 2, b / 2), (-a / 2, b / 2)]
-    rog = [(cx + x * math.cos(kat) - y * math.sin(kat),
-            cy + x * math.sin(kat) + y * math.cos(kat)) for x, y in rog]
+def generuj_odreczny_kwadrat(size=ROZMIAR):
+    """Generuje obraz odręcznego kwadratu z deformacją wierzchołków i drżeniem krawędzi."""
+    img = Image.new("L", (size, size), 0)
+    draw = ImageDraw.Draw(img)
+
+    cx = random.uniform(size * 0.35, size * 0.65)
+    cy = random.uniform(size * 0.35, size * 0.65)
+    half_s = random.uniform(size * 0.16, size * 0.32)
+    rot = random.uniform(-0.5, 0.5)  # obrót o ok. +/- 28 stopni
+    line_w = random.randint(3, 6)
+
+    corners = [
+        (-half_s, -half_s),
+        (half_s, -half_s),
+        (half_s, half_s),
+        (-half_s, half_s)
+    ]
+
+    cos_a, sin_a = math.cos(rot), math.sin(rot)
+    t_corners = []
+    max_shift = half_s * 0.16
+
+    for x, y in corners:
+        xs = x + random.uniform(-max_shift, max_shift)
+        ys = y + random.uniform(-max_shift, max_shift)
+        xr = xs * cos_a - ys * sin_a + cx
+        yr = xs * sin_a + ys * cos_a + cy
+        t_corners.append((xr, yr))
+
     pts = []
-    sila = random.uniform(0.5, 3.0)
     for i in range(4):
-        p, q = rog[i], rog[(i + 1) % 4]
-        for t in np.linspace(0, 1, 25, endpoint=False):
-            pts.append(_drzenie((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t), sila))
-    return pts
+        p_start = t_corners[i]
+        p_end = t_corners[(i + 1) % 4]
+        steps = random.randint(8, 14)
+        for s in range(steps):
+            t = s / steps
+            jitter = math.sin(t * math.pi) * random.uniform(-2.5, 2.5)
+            x_int = p_start[0] + t * (p_end[0] - p_start[0]) + jitter
+            y_int = p_start[1] + t * (p_end[1] - p_start[1]) + jitter
+            pts.append((x_int, y_int))
+
+    pts.append(pts[0])  # domknięcie
+    draw.line(pts, fill=255, width=line_w, joint="curve")
+    return img
 
 
-def obrys(punkty):
-    obraz = Image.new("1", (ROZMIAR, ROZMIAR), 0)
-    rysik = ImageDraw.Draw(obraz)
-    p = punkty + [punkty[0]]  # domknięcie jak w main.py
-    rysik.line(p, fill=1, width=GRUBOSC)
-    return np.array(obraz, dtype=bool)
-
-
-def _jedna(gen):
-    """Losuje figurę, aż się zmieści na płótnie i da policzyć cechy."""
-    while True:
-        pts = gen()
-        if any(not (2 <= x <= ROZMIAR - 3 and 2 <= y <= ROZMIAR - 3) for x, y in pts):
-            continue  # figura wystaje poza płótno
+def _probka_z_cechami(generator_fn):
+    """Generuje obraz i bezpiecznie wyciąga cechy."""
+    for _ in range(20):
         try:
-            return cechy(obrys(pts))
+            img = generator_fn()
+            c = cechy(img)
+            return c
         except ValueError:
             continue
+    raise RuntimeError("Nie udało się wygenerować poprawnego kształtu po 20 próbach.")
 
 
 def generuj(n):
-    """n kół i n kwadratów, na przemian: koło, kwadrat, koło, kwadrat..."""
+    """Generuje n kół i n kwadratów naprzemiennie, zwracając listę krotek (kolistosc, liczba_rogow, etykieta)."""
     wiersze = []
     for _ in range(n):
-        for etykieta, gen in (("kolo", punkty_kola), ("kwadrat", punkty_kwadratu)):
-            c = _jedna(gen)
-            wiersze.append((f"{c[0]:.4f}", f"{c[1]:.4f}", etykieta))
+        for etykieta, gen_fn in (("kolo", generuj_odreczne_kolo), ("kwadrat", generuj_odreczny_kwadrat)):
+            c = _probka_z_cechami(gen_fn)
+            wiersze.append((f"{c[0]:.4f}", f"{c[1]:.1f}", etykieta))
     return wiersze
 
 
 def dopisz(n, sciezka=SCIEZKA):
-    """Dopisuje do CSV n kół i n kwadratów na przemian (nie kasuje istniejących wierszy).
-    Zwraca dopisane wiersze."""
+    """Generuje i dopisuje n kół i n kwadratów do pliku CSV."""
     wiersze = generuj(n)
+    naglowek = m.KOLUMNY + ["etykieta"]
     nowy = not os.path.exists(sciezka) or os.path.getsize(sciezka) == 0
-    with open(sciezka, "a", newline="", encoding="utf-8") as f:
+
+    # Sprawdzenie czy istniejący plik ma aktualny nagłówek
+    if not nowy:
+        with open(sciezka, "r", encoding="utf-8") as f:
+            pierwsza_linia = f.readline().strip().split(",")
+            if pierwsza_linia != naglowek:
+                nowy = True
+
+    tryb = "w" if nowy else "a"
+    with open(sciezka, tryb, newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         if nowy:
-            w.writerow(m.KOLUMNY + ["etykieta"])
+            w.writerow(naglowek)
         w.writerows(wiersze)
     return wiersze
 
@@ -103,4 +150,4 @@ def dopisz(n, sciezka=SCIEZKA):
 if __name__ == "__main__":
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 50
     dopisz(n)
-    print(f"Dopisano {2 * n} próbek do {SCIEZKA}")
+    print(f"Pomyślnie wygenerowano i dopisano {2 * n} próbek do {SCIEZKA}")

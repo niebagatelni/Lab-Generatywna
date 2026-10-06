@@ -1,19 +1,22 @@
-"""Program 2: rysujesz figurę, a program mówi "koło" albo "kwadrat".
+"""Program rozpoznający: rysujesz figurę, a program mówi "KOŁO" albo "KWADRAT".
 
-Używa tylko granicy z granica.json (wyliczonej przez model.py) - bez scikit-learn.
-Najpierw uruchom model.py, żeby powstał plik granica.json.
+Używa wyłącznie granicy z granica.json - bez scikit-learn.
+Wymaga wcześniejszego uruchomienia model.py.
 """
 import json
 import math
 import os
+import sys
 import tkinter as tk
-
 import numpy as np
 from PIL import Image, ImageDraw
 
 from cechy import GRUBOSC, cechy
 
-ROZMIAR = 300
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+ROZMIAR = 350
 SCIEZKA_GRANICY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "granica.json")
 
 
@@ -22,21 +25,22 @@ def wczytaj_granice(sciezka=SCIEZKA_GRANICY):
         return json.load(f)
 
 
-def klasyfikuj(granica, cv, rozpietosc_p):
-    """z = w1*cv + w2*rozpietosc_p + b. z > 0 -> klasa dodatnia, inaczej ujemna.
-    Pewność = sigmoida z (im dalej od granicy, tym pewniej). Zwraca (etykieta, pewnosc, z)."""
+def klasyfikuj(granica, kolistosc, liczba_rogow):
+    """z = w1 * kolistosc + w2 * liczba_rogow + b.
+    z > 0 -> klasa_dodatnia, z <= 0 -> klasa_ujemna.
+    Pewność sigmoidalna: p = 1 / (1 + exp(-|z|)).
+    """
     w1, w2 = granica["w"]
-    z = w1 * cv + w2 * rozpietosc_p + granica["b"]
-    p_dodatnia = 1 / (1 + math.exp(-z))
-    if z > 0:
-        return granica["klasa_dodatnia"], p_dodatnia, z
-    return granica["klasa_ujemna"], 1 - p_dodatnia, z
+    z = w1 * kolistosc + w2 * liczba_rogow + granica["b"]
+    pewnosc = 1.0 / (1.0 + math.exp(-abs(z)))
+    etykieta = granica["klasa_dodatnia"] if z > 0 else granica["klasa_ujemna"]
+    return etykieta, pewnosc, z
 
 
 class Aplikacja:
     def __init__(self, root):
         self.root = root
-        root.title("Rozpoznawanie: koło czy kwadrat")
+        root.title("Rozpoznawanie: koło czy kwadrat (Wariant 2)")
 
         self.canvas = tk.Canvas(root, width=ROZMIAR, height=ROZMIAR, bg="white",
                                 highlightthickness=1, highlightbackground="black")
@@ -47,37 +51,35 @@ class Aplikacja:
 
         panel = tk.Frame(root)
         panel.pack(pady=(0, 5))
-        tk.Button(panel, text="Wyczyść", command=self.wyczysc).grid(row=0, column=0, padx=3)
-        tk.Button(panel, text="Rozpoznaj", command=self.rozpoznaj).grid(row=0, column=1, padx=3)
+        tk.Button(panel, text="Wyczyść", command=self.wyczysc).grid(row=0, column=0, padx=4)
+        tk.Button(panel, text="Rozpoznaj", command=self.rozpoznaj).grid(row=0, column=1, padx=4)
 
-        self.status = tk.Label(root, width=48)
+        self.status = tk.Label(root, width=54, wraplength=380, justify="center")
         self.status.pack(pady=(0, 10))
 
         try:
             self.granica = wczytaj_granice()
-            self.nowy_rysunek("Narysuj figurę.")
+            self.nowy_rysunek("Narysuj figurę i kliknij 'Rozpoznaj'.")
         except (OSError, ValueError, KeyError):
             self.granica = None
             self.nowy_rysunek("Brak granica.json - najpierw uruchom model.py.")
 
     def nowy_rysunek(self, komunikat):
         self.canvas.delete("all")
-        self.obraz = Image.new("1", (ROZMIAR, ROZMIAR), 0)
+        self.obraz = Image.new("L", (ROZMIAR, ROZMIAR), 0)
         self.rysik = ImageDraw.Draw(self.obraz)
         self.punkty = []
-        self.domkniety = False
         self.status.config(text=komunikat)
 
     def wyczysc(self):
-        self.nowy_rysunek("Narysuj figurę." if self.granica else "Brak granica.json - najpierw uruchom model.py.")
+        msg = "Narysuj figurę i kliknij 'Rozpoznaj'." if self.granica else "Brak granica.json - uruchom model.py."
+        self.nowy_rysunek(msg)
 
     def linia(self, a, b):
         self.canvas.create_line(*a, *b, width=GRUBOSC, capstyle=tk.ROUND)
-        self.rysik.line([a, b], fill=1, width=GRUBOSC)
+        self.rysik.line([a, b], fill=255, width=GRUBOSC)
 
     def start(self, e):
-        if self.domkniety:  # nowe pociągnięcie po skończonej figurze czyści płótno
-            self.wyczysc()
         self.punkty = [(e.x, e.y)]
 
     def ruch(self, e):
@@ -88,23 +90,26 @@ class Aplikacja:
     def koniec(self, _):
         if len(self.punkty) > 1:
             self.linia(self.punkty[-1], self.punkty[0])  # domknięcie obrysu
-            self.domkniety = True
 
     def rozpoznaj(self):
         if self.granica is None:
             self.status.config(text="Brak granica.json - najpierw uruchom model.py.")
             return
-        if not self.domkniety:
+        if len(self.punkty) < 2:
             self.status.config(text="Najpierw narysuj figurę.")
             return
+
         try:
-            cv, rozp = cechy(np.array(self.obraz, dtype=bool))
+            kolistosc, rogi = cechy(self.obraz)
         except ValueError as err:
             self.status.config(text=f"Błąd: {err}")
             return
-        etykieta, pewnosc, z = klasyfikuj(self.granica, cv, rozp)
-        nazwa = {"kolo": "KOŁO", "kwadrat": "KWADRAT"}.get(etykieta, etykieta)
-        self.status.config(text=f"To {nazwa} (pewność {pewnosc:.0%})  [cv {cv:.3f}, rozp_p {rozp:.2f}, z {z:+.2f}]")
+
+        etykieta, pewnosc, z = klasyfikuj(self.granica, kolistosc, rogi)
+        nazwa = {"kolo": "KOŁO", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
+        self.status.config(
+            text=f"To {nazwa} (pewność: {pewnosc:.1%})\n[kolistość: {kolistosc:.3f}, rogi: {rogi:.0f}, z: {z:+.2f}]"
+        )
 
 
 if __name__ == "__main__":
