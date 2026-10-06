@@ -1,6 +1,6 @@
 """Animacja procesu uczenia i adaptacji granicy decyzyjnej 2D.
-Co określony interwał dokłada kolejną próbkę z dane.csv, aktualizuje wagi modelu liniowego
-i przerysowuje prostą rozdzielającą klastry kół i kwadratów.
+Wizualizuje przestrzeń cech: Wypełnienie prostokąta otaczającego vs Liczba rogów.
+Dla kół i elips wypełnienie wynosi zawsze ~0.785, dla kwadratów ~0.90 - 1.0.
 
 Użycie z konsoli:
     python wykres.py [dane.csv] [odstep_w_sekundach] [--save-only]
@@ -17,10 +17,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 KOLORY = {"kolo": "#1f77b4", "kwadrat": "#d62728"}
-ETYKIETY_PL = {"kolo": "Koła", "kwadrat": "Kwadraty"}
+ETYKIETY_PL = {"kolo": "Koła / Elipsy", "kwadrat": "Kwadraty"}
 
 
-def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.08, save_only=False):
+def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.04, save_only=False):
     X, y = m.wczytaj_dane(sciezka_danych)
     if len(y) == 0:
         raise SystemExit(f"Brak danych w {sciezka_danych}.")
@@ -28,18 +28,18 @@ def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.08, save_only=False):
     fig, ax = plt.subplots(figsize=(9, 6), dpi=100)
 
     # Ustalenie granic osi wykresu
-    xmin = max(0.5, float(X[:, 0].min()) - 0.08)
-    xmax = min(1.08, float(X[:, 0].max()) + 0.06)
+    xmin = max(0.65, float(X[:, 0].min()) - 0.05)
+    xmax = min(1.05, float(X[:, 0].max()) + 0.05)
     ymin = 2.0
     ymax = max(11.0, float(X[:, 1].max()) + 2.0)
 
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
-    ax.set_xlabel("Kolistość (Circularity = 4·π·Pole / Obwód²)", fontsize=11)
+    ax.set_xlabel("Wypełnienie prostokąta otaczającego (Pole otoczki / Pole minAreaRect)", fontsize=11)
     ax.set_ylabel("Liczba wierzchołków / rogów (approxPolyDP)", fontsize=11)
     ax.grid(True, linestyle=":", alpha=0.6)
 
-    # Delikatny jitter wizualny na dyskretnej osi Y, by punkty nie zlewały się w jedną plamę
+    # Delikatny jitter wizualny na dyskretnej osi Y
     np.random.seed(42)
     jitter_y = np.random.uniform(-0.18, 0.18, size=len(y))
 
@@ -84,7 +84,6 @@ def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.08, save_only=False):
         return list(punkty.values()) + [linia]
 
     if save_only:
-        # Zapisz natychmiast ostatnią klatkę bez animacji GUI
         klatka(len(y) - 1)
         plt.close(fig)
         return
@@ -99,7 +98,7 @@ def animuj(sciezka_danych=m.SCIEZKA_DANYCH, odstep=0.08, save_only=False):
 
 if __name__ == "__main__":
     sciezka = m.SCIEZKA_DANYCH
-    odstep = 0.05
+    odstep = 0.04
     save_only = False
 
     args = sys.argv[1:]

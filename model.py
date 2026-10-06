@@ -1,8 +1,7 @@
 """Moduł uczenia klasyfikatora liniowego: dane.csv -> granica.json.
 
 Uczenie: python model.py
-Wyznacza i zapisuje prostą separującą: z = w1*kolistosc + w2*liczba_rogow + b
-Klasyfikacja nie wymaga scikit-learn w programie docelowym.
+Równanie granicy decyzyjnej: z = w1 * wypelnienie_prostokata + w2 * liczba_rogow + b
 """
 import csv
 import json
@@ -12,6 +11,7 @@ import numpy as np
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
@@ -20,13 +20,12 @@ from sklearn.preprocessing import StandardScaler
 FOLDER = os.path.dirname(os.path.abspath(__file__))
 SCIEZKA_DANYCH = os.path.join(FOLDER, "dane.csv")
 SCIEZKA_GRANICY = os.path.join(FOLDER, "granica.json")
-KOLUMNY = ["kolistosc", "liczba_rogow"]
+KOLUMNY = ["wypelnienie_prostokata", "liczba_rogow"]
 MIN_PROBEK = 10
 MIN_NA_KLASE = 3
 
 
 def wczytaj_dane(sciezka=SCIEZKA_DANYCH):
-    """Wczytuje zbiór danych z CSV."""
     if not os.path.exists(sciezka):
         return np.empty((0, len(KOLUMNY))), np.empty(0, dtype=str)
     with open(sciezka, newline="", encoding="utf-8") as f:
@@ -40,9 +39,6 @@ def wczytaj_dane(sciezka=SCIEZKA_DANYCH):
 
 
 def dopasuj(X, y):
-    """Uczy model regresji logistycznej i zwija wagi ze skalerem do postaci surowej:
-    z = w1 * kolistosc + w2 * liczba_rogow + b.
-    """
     model = make_pipeline(StandardScaler(), LogisticRegression(random_state=42))
     model.fit(X, y)
     skaler, regresja = model[0], model[-1]
@@ -61,26 +57,22 @@ def dopasuj(X, y):
 
 
 def przewiduj(granica, X):
-    """Dokonuje predykcji klas dla macierzy cech X na podstawie granicy."""
     z = np.asarray(X, dtype=float) @ np.array(granica["w"]) + granica["b"]
     return np.where(z > 0, granica["klasa_dodatnia"], granica["klasa_ujemna"])
 
 
 def dokladnosc(granica, X, y):
-    """Zwraca dokładność klasyfikacji w zakresie [0.0, 1.0]."""
     if len(y) == 0:
         return 0.0
     return float(np.mean(przewiduj(granica, X) == np.asarray(y)))
 
 
 def zapisz_granice(granica, sciezka=SCIEZKA_GRANICY):
-    """Zapisuje słownik granicy decyzyjnej do pliku JSON."""
     with open(sciezka, "w", encoding="utf-8") as f:
         json.dump(granica, f, indent=2, ensure_ascii=False)
 
 
 def wczytaj_granice(sciezka=SCIEZKA_GRANICY):
-    """Wczytuje granicę z pliku JSON lub zwraca None."""
     try:
         with open(sciezka, encoding="utf-8") as f:
             return json.load(f)
@@ -89,15 +81,11 @@ def wczytaj_granice(sciezka=SCIEZKA_GRANICY):
 
 
 def wzor(granica):
-    """Zwraca czytelną postać równania granicy decyzyjnej."""
     w1, w2 = granica["w"]
-    return f"z = {w1:.2f}·kolistość + {w2:.2f}·rogi {granica['b']:+.2f}"
+    return f"z = {w1:.2f}·wypełnienie + {w2:.2f}·rogi {granica['b']:+.2f}"
 
 
 def ucz(sciezka_danych=SCIEZKA_DANYCH, sciezka_granicy=SCIEZKA_GRANICY):
-    """Trenuje model na danych z CSV, liczy dokładność na odłożonym teście 20%
-    i zapisuje ostateczny model wytrenowany na 100% danych do granica.json.
-    """
     X, y = wczytaj_dane(sciezka_danych)
     if len(y) < MIN_PROBEK or min((y == "kolo").sum(), (y == "kwadrat").sum()) < MIN_NA_KLASE:
         return None

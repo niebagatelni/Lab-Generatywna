@@ -1,12 +1,14 @@
 """Ekstrakcja cech geometrycznych kształtu z obrazu za pomocą OpenCV.
 
 Cechy:
-1. kolistosc (Circularity) = 4 * pi * Pole / (Obwód^2)
-   Dla idealnego koła = 1.0 (odręczne koło ~0.88 - 0.99).
-   Dla kwadratu = pi/4 ~ 0.785 (odręczny kwadrat ~0.65 - 0.83).
-2. liczba_rogow = liczba wierzchołków wielokąta z algorytmu approxPolyDP (otoczka convex hull).
-   Dla kwadratu = 4.
-   Dla koła = zazwyczaj 6 - 16 (brak ostrych załamań pod kątem prostym).
+1. wypelnienie_prostokata (Rectangularity / Box Ratio) = Pole otoczki / Pole minimalnego prostokąta otaczającego (minAreaRect).
+   - Niezmiennik geometryczny: dla koła oraz DOWOLNEJ elipsy (nawet mocno spłaszczonej lub obróconej)
+     stosunek ten wynosi teoretycznie pi / 4 ~ 0.785 (w rysunku odręcznym ~0.74 - 0.81).
+   - Dla kwadratu i prostokąta wynosi teoretycznie 1.0 (w rysunku odręcznym ~0.86 - 0.99).
+   Dzięki temu odręczne elipsy i jajowate koła nigdy nie są mylone z kwadratami!
+2. liczba_rogow = liczba wierzchołków wielokąta z algorytmu approxPolyDP (z progiem 0.03 * obwód).
+   - Dla kwadratu: regularnie 4.
+   - Dla koła / elipsy: 6 - 16 (brak kątów prostych i płaskich boków).
 """
 import numpy as np
 import cv2
@@ -16,7 +18,7 @@ MIN_BOK = 15  # minimalny rozmiar obwiedni figury w pikselach
 
 
 def cechy(obraz):
-    """Przyjmuje obraz jako numpy array (bool/uint8) lub PIL Image i zwraca (kolistosc, liczba_rogow)."""
+    """Przyjmuje obraz jako numpy array (bool/uint8) lub PIL Image i zwraca (wypelnienie_prostokata, liczba_rogow)."""
     if hasattr(obraz, "convert"):
         arr = np.array(obraz.convert("L"), dtype=np.uint8)
     else:
@@ -32,7 +34,6 @@ def cechy(obraz):
     if ys.max() - ys.min() + 1 < MIN_BOK or xs.max() - xs.min() + 1 < MIN_BOK:
         raise ValueError("Rysunek jest zbyt mały.")
 
-    # Wykrywanie zewnętrznego konturu
     contours, _ = cv2.findContours(arr, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         raise ValueError("Nie wykryto konturu figury.")
@@ -40,17 +41,19 @@ def cechy(obraz):
     cnt = max(contours, key=cv2.contourArea)
     hull = cv2.convexHull(cnt)
 
-    area = float(cv2.contourArea(hull))
+    area_hull = float(cv2.contourArea(hull))
     perimeter = float(cv2.arcLength(hull, True))
 
-    if perimeter <= 0 or area <= 0:
+    if perimeter <= 0 or area_hull <= 0:
         raise ValueError("Figura ma zerowy obwód lub pole.")
 
-    # 1. Kolistość izoperymetryczna
-    kolistosc = (4.0 * np.pi * area) / (perimeter ** 2)
+    # 1. Wypełnienie minimalnego zorientowanego prostokąta otaczającego
+    rect = cv2.minAreaRect(hull)
+    rect_area = float(rect[1][0] * rect[1][1])
+    wypelnienie_prostokata = (area_hull / rect_area) if rect_area > 0 else 0.0
 
-    # 2. Liczba wierzchołków z wielokąta approxPolyDP
-    approx = cv2.approxPolyDP(hull, 0.04 * perimeter, True)
+    # 2. Liczba wierzchołków z wielokąta approxPolyDP (próg 0.03 * obwód)
+    approx = cv2.approxPolyDP(hull, 0.03 * perimeter, True)
     liczba_rogow = float(len(approx))
 
-    return float(kolistosc), float(liczba_rogow)
+    return float(wypelnienie_prostokata), float(liczba_rogow)

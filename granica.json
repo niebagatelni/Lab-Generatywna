@@ -1,13 +1,13 @@
 {
   "cechy": [
-    "kolistosc",
+    "wypelnienie_prostokata",
     "liczba_rogow"
   ],
   "w": [
-    -23.279915898264456,
-    -1.080070069150778
+    35.00258887998366,
+    -1.6780484459080727
   ],
-  "b": 26.99650511962792,
+  "b": -19.437231521740497,
   "klasa_ujemna": "kolo",
   "klasa_dodatnia": "kwadrat"
 }

@@ -1,5 +1,6 @@
 """Aplikacja główna z pętlą aktywnego uczenia (Active Learning).
 Pozwala rysować figury, rozpoznawać je na żywo, a także oznaczać i douczać model w czasie rzeczywistym.
+Doskonale radzi sobie z kołami, mocno spłaszczonymi elipsami i zniekształconymi kwadratami.
 """
 import csv
 import math
@@ -22,7 +23,7 @@ ROZMIAR = 350
 class AplikacjaGlowna:
     def __init__(self, root):
         self.root = root
-        root.title("Klasyfikator: Koło czy Kwadrat (Active Learning - Wariant 2)")
+        root.title("Klasyfikator: Koło/Elipsa czy Kwadrat (Active Learning - Wariant 2)")
         root.resizable(False, False)
 
         self.canvas = tk.Canvas(
@@ -34,7 +35,6 @@ class AplikacjaGlowna:
         self.canvas.bind("<B1-Motion>", self.ruch)
         self.canvas.bind("<ButtonRelease-1>", self.koniec)
 
-        # Panel przycisków akcji
         panel = tk.Frame(root)
         panel.pack(pady=(0, 6))
 
@@ -52,7 +52,6 @@ class AplikacjaGlowna:
         tk.Button(panel2, text="Generuj 50+50 próbek", width=22,
                   command=self.generuj_syntetyczne).grid(row=0, column=0, padx=4)
 
-        # Etykieta statusu i informacji o modelu
         self.status = tk.Label(
             root, text="Narysuj figurę i kliknij 'Rozpoznaj' lub oznacz ją przyciskami.",
             width=58, wraplength=420, justify="center", font=("Helvetica", 10), pady=4
@@ -86,7 +85,7 @@ class AplikacjaGlowna:
 
     def koniec(self, _):
         if len(self.punkty) > 1:
-            self.linia(self.punkty[-1], self.punkty[0])  # domknięcie obrysu dla estetyki
+            self.linia(self.punkty[-1], self.punkty[0])
 
     def rozpoznaj(self):
         if self.granica is None:
@@ -100,20 +99,20 @@ class AplikacjaGlowna:
             return
 
         try:
-            kolistosc, rogi = cechy(self.obraz)
+            wyp, rogi = cechy(self.obraz)
         except ValueError as err:
             self.status.config(text=f"Błąd analizy: {err}")
             return
 
         w1, w2 = self.granica["w"]
-        z = w1 * kolistosc + w2 * rogi + self.granica["b"]
+        z = w1 * wyp + w2 * rogi + self.granica["b"]
         pewnosc = 1.0 / (1.0 + math.exp(-abs(z)))
         etykieta = self.granica["klasa_dodatnia"] if z > 0 else self.granica["klasa_ujemna"]
-        nazwa = {"kolo": "KOŁO", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
+        nazwa = {"kolo": "KOŁO / ELIPSA", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
 
         self.status.config(
             text=f"Rozpoznano: {nazwa} (pewność: {pewnosc:.1%})\n"
-                 f"[kolistość: {kolistosc:.3f}, rogi: {rogi:.0f}, z: {z:+.2f}]"
+                 f"[wypełnienie prostokąta: {wyp:.3f}, rogi: {rogi:.0f}, z: {z:+.2f}]"
         )
 
     def przelicz_model(self):
@@ -146,7 +145,7 @@ class AplikacjaGlowna:
         self.nowy_rysunek()
         status_modelu = self.przelicz_model()
         nazwa = {"kolo": "Koło", "kwadrat": "Kwadrat"}.get(etykieta, etykieta)
-        self.status.config(text=f"Dodano: {nazwa} (kolistość {c[0]:.3f}, rogi {c[1]:.0f})\n{status_modelu}")
+        self.status.config(text=f"Dodano: {nazwa} (wypełnienie {c[0]:.3f}, rogi {c[1]:.0f})\n{status_modelu}")
 
     def generuj_syntetyczne(self):
         self.status.config(text="Generowanie próbek syntetycznych w toku...")

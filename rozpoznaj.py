@@ -1,7 +1,7 @@
 """Program rozpoznający: rysujesz figurę, a program mówi "KOŁO" albo "KWADRAT".
 
 Używa wyłącznie granicy z granica.json - bez scikit-learn.
-Wymaga wcześniejszego uruchomienia model.py.
+Działa niezawodnie także dla spłaszczonych kół (elips) oraz zniekształconych kwadratów.
 """
 import json
 import math
@@ -25,13 +25,12 @@ def wczytaj_granice(sciezka=SCIEZKA_GRANICY):
         return json.load(f)
 
 
-def klasyfikuj(granica, kolistosc, liczba_rogow):
-    """z = w1 * kolistosc + w2 * liczba_rogow + b.
-    z > 0 -> klasa_dodatnia, z <= 0 -> klasa_ujemna.
-    Pewność sigmoidalna: p = 1 / (1 + exp(-|z|)).
+def klasyfikuj(granica, wypelnienie, rogi):
+    """z = w1 * wypelnienie + w2 * rogi + b.
+    z > 0 -> klasa_dodatnia (kwadrat), z <= 0 -> klasa_ujemna (kolo).
     """
     w1, w2 = granica["w"]
-    z = w1 * kolistosc + w2 * liczba_rogow + granica["b"]
+    z = w1 * wypelnienie + w2 * rogi + granica["b"]
     pewnosc = 1.0 / (1.0 + math.exp(-abs(z)))
     etykieta = granica["klasa_dodatnia"] if z > 0 else granica["klasa_ujemna"]
     return etykieta, pewnosc, z
@@ -89,7 +88,7 @@ class Aplikacja:
 
     def koniec(self, _):
         if len(self.punkty) > 1:
-            self.linia(self.punkty[-1], self.punkty[0])  # domknięcie obrysu
+            self.linia(self.punkty[-1], self.punkty[0])
 
     def rozpoznaj(self):
         if self.granica is None:
@@ -100,15 +99,15 @@ class Aplikacja:
             return
 
         try:
-            kolistosc, rogi = cechy(self.obraz)
+            wyp, rogi = cechy(self.obraz)
         except ValueError as err:
             self.status.config(text=f"Błąd: {err}")
             return
 
-        etykieta, pewnosc, z = klasyfikuj(self.granica, kolistosc, rogi)
-        nazwa = {"kolo": "KOŁO", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
+        etykieta, pewnosc, z = klasyfikuj(self.granica, wyp, rogi)
+        nazwa = {"kolo": "KOŁO / ELIPSA", "kwadrat": "KWADRAT"}.get(etykieta, etykieta.upper())
         self.status.config(
-            text=f"To {nazwa} (pewność: {pewnosc:.1%})\n[kolistość: {kolistosc:.3f}, rogi: {rogi:.0f}, z: {z:+.2f}]"
+            text=f"To {nazwa} (pewność: {pewnosc:.1%})\n[wypełnienie: {wyp:.3f}, rogi: {rogi:.0f}, z: {z:+.2f}]"
         )
 
 
